@@ -8,6 +8,8 @@ import XCGLogger
 
 private let log = XCGLogger.defaultInstance()
 
+private let LogPII = false
+
 class NoSuchRecordError: ErrorType {
     let guid: GUID
     init(guid: GUID) {
@@ -224,7 +226,9 @@ extension SQLiteHistory: BrowserHistory {
             // so that we don't flag this as changed unless the title changed.
             let update = "UPDATE \(TableHistory) SET title = ?, local_modified = ?, is_deleted = 0, should_upload = 1 WHERE url = ?"
             let updateArgs: Args? = [site.title, now, site.url]
-            log.debug("Setting title to \(site.title) for URL \(site.url)")
+            if LogPII {
+                log.debug("Setting title to \(site.title) for URL \(site.url)")
+            }
             error = conn.executeChange(update, withArgs: updateArgs)
             if error != nil {
                 log.warning("Update failed with \(err?.localizedDescription)")
@@ -398,7 +402,9 @@ extension SQLiteHistory: Favicons {
      * in the history table.
      */
     public func addFavicon(icon: Favicon, forSite site: Site) -> Deferred<Result<Int>> {
-        log.verbose("Adding favicon \(icon.url) for site \(site.url).")
+        if LogPII {
+            log.verbose("Adding favicon \(icon.url) for site \(site.url).")
+        }
         func doChange(query: String, args: Args?) -> Deferred<Result<Int>> {
             var err: NSError?
             let res = db.withWritableConnection(&err) { (conn, inout err: NSError?) -> Int in
@@ -582,7 +588,10 @@ extension SQLiteHistory: SyncableHistory {
             }
 
             // The record doesn't exist locally. Insert it.
-            log.debug("Inserting remote history item for guid \(place.guid), URL \(place.url).")
+            log.debug("Inserting remote history item for guid \(place.guid).")
+            if LogPII {
+                log.debug("Inserting: \(place.url).")
+            }
             let insert = "INSERT INTO \(TableHistory) (guid, url, title, server_modified, is_deleted, should_upload) VALUES (?, ?, ?, ?, 0, 0)"
             let args: Args = [place.guid, place.url, place.title, serverModified]
             return self.run(insert, withArgs: args) >>> always(place.guid)
